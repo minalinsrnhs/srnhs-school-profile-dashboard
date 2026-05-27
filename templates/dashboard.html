@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ settings.dashboard_title }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>:root{--brand-main:{{ settings.main_green }};--brand-side:{{ settings.sidebar_color }};--page-bg:{{ settings.page_background }};}</style>
+</head>
+<body class="dashboard-body">
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <img src="{{ settings.logo_url }}" alt="SRNHS logo">
+      <div><strong>SRNHS</strong><span>School Dashboard</span></div>
+    </div>
+    <nav class="main-nav" aria-label="Dashboard navigation">
+      <button class="nav-item active" data-page="dashboard"><span>⌂</span>Dashboard</button>
+      <button class="nav-item" data-page="analytics"><span>▥</span>Analytics</button>
+      <button class="nav-item" data-page="insights"><span>✦</span>Insights &amp; Actions</button>
+      <button class="nav-item" data-page="records"><span>▤</span>School Records</button>
+      <button class="nav-item" data-page="reports"><span>⇩</span>Reports</button>
+      <button class="nav-item" data-page="accounts"><span>◉</span>Accounts</button>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="mode-chip">Data: <strong>{{ 'Online' if backend == 'supabase' else 'Local' }}</strong></div>
+      <a class="logout-link" href="{{ url_for('logout') }}"><span>↪</span>Log Out</a>
+    </div>
+  </aside>
+
+  <main class="workspace">
+    <header class="topbar">
+      <button class="menu-toggle" id="menuToggle" aria-label="Open menu">☰</button>
+      <div class="page-identity">
+        <h1 id="pageTitle">Dashboard</h1>
+        <p id="headerSubtitle">{{ settings.school_name }} · {{ settings.location }}</p>
+      </div>
+      <label class="global-search"><span>⌕</span><input id="globalSearch" type="search" placeholder="Search school year, grade, record, action, or account..."></label>
+      <div class="profile-area">
+        <button class="profile-pill" id="profileToggle">
+          <span class="avatar profile-avatar" id="topAvatar">{{ initials }}</span>
+          <span class="profile-copy"><strong id="displayName">{{ account.full_name }}</strong><small id="displayUsername">@{{ account.username }}</small></span><span>⌄</span>
+        </button>
+        <div class="profile-menu" id="profileMenu">
+          <button data-modal="profileModal">Edit Account</button>
+          <button data-modal="displayModal">Dashboard Display Settings</button>
+          <a href="{{ url_for('logout') }}">Log Out</a>
+        </div>
+      </div>
+    </header>
+
+    <section class="filter-bar" id="mainFilters">
+      <div class="filter-label">View</div>
+      <button class="all-years-pill selected" id="allYearsButton">All Years</button>
+      <div class="filter-block year-pills" id="yearPills" aria-label="School year filters"></div>
+      <div class="filter-divider"></div>
+      <div class="segmented" id="levelToggle"><button class="selected" data-segment="All">All Grades</button><button data-segment="JHS">JHS</button><button data-segment="SHS">SHS</button></div>
+      <button class="filter-pill active" id="forecastToggle">Forecast On</button>
+      <button class="reset-button" id="resetFilters">Reset</button>
+    </section>
+
+    <!-- DASHBOARD HOME -->
+    <section class="app-page active" id="page-dashboard">
+      <div class="overview-heading">
+        <div><h2>School Performance Overview</h2><p id="viewCaption">All recorded school years</p></div>
+        <div class="header-actions"><button class="soft-action" data-page-link="records">Upload Excel</button><button class="primary-action" id="addYearBtn">+ Add School Year</button></div>
+      </div>
+      <div class="kpi-grid" id="kpiGrid"></div>
+
+      <section class="panel kpi-detail-panel" id="kpiDetailPanel" aria-live="polite">
+        <div class="kpi-detail-empty">Point to or click a KPI card to view its analysis.</div>
+      </section>
+
+      <div class="dashboard-grid two-up">
+        <article class="panel chart-panel"><div class="panel-head"><div><h3>Enrollment Trend</h3><p>Actual totals and planning projection</p></div><span class="chart-note">Hover values · click Projected legend to expand</span></div><div class="canvas-wrap tall"><canvas id="enrollmentChart"></canvas></div></article>
+        <article class="panel chart-panel"><div class="panel-head"><div><h3>JHS and SHS Composition</h3><p>Student distribution by school level</p></div><span class="chart-note">Interactive</span></div><div class="canvas-wrap tall"><canvas id="levelCompositionChart"></canvas></div></article>
+        <article class="panel chart-panel"><div class="panel-head"><div><h3>Enrollment by Grade</h3><p>Combined total for the selected period</p></div></div><div class="canvas-wrap tall"><canvas id="gradeChart"></canvas></div></article>
+        <article class="panel chart-panel"><div class="panel-head"><div><h3>Dropouts and Repeaters</h3><p>Grouped annual counts</p></div></div><div class="canvas-wrap tall"><canvas id="retentionChart"></canvas></div></article>
+        <article class="panel chart-panel"><div class="panel-head"><div><h3>Cohort and Transition</h3><p>Continuity indicators by year</p></div></div><div class="canvas-wrap tall"><canvas id="continuityChart"></canvas></div></article>
+        <article class="panel chart-panel"><div class="panel-head"><div><h3>Ratio Trends</h3><p>Students per teacher and classroom</p></div></div><div class="canvas-wrap tall"><canvas id="ratioChart"></canvas></div></article>
+        <article class="panel chart-panel"><div class="panel-head"><div><h3>Enrollment Movement</h3><p>Year-to-year net change</p></div></div><div class="canvas-wrap tall"><canvas id="changeChart"></canvas></div></article>
+        <article class="panel chart-panel"><div class="panel-head"><div><h3>Repeater Contribution</h3><p>Combined total for the selected period</p></div></div><div class="canvas-wrap tall"><canvas id="repeaterShareChart"></canvas></div></article>
+      </div>
+
+      <div class="intelligence-grid">
+        <article class="panel detail-panel insights-card"><div class="panel-head"><h3>Quick Insights</h3><button class="arrow-link" data-page-link="insights">View All →</button></div><div id="quickInsights" class="bi-list"></div></article>
+        <article class="panel detail-panel concern-panel"><div class="panel-head"><h3>School Concerns</h3><button class="arrow-link" data-page-link="insights">Explore →</button></div><div id="quickConcerns" class="bi-list"></div></article>
+        <article class="panel detail-panel actions-panel"><div class="panel-head"><h3>Suggested Actions</h3><button class="arrow-link" data-page-link="insights">Track Plans →</button></div><div id="quickActions" class="bi-list"></div></article>
+        <article class="panel detail-panel activity-panel"><div class="panel-head"><h3>Recent Activity</h3><button class="arrow-link" data-page-link="accounts">View All →</button></div><div id="recentActivity" class="timeline compact"></div></article>
+      </div>
+    </section>
+
+    <!-- ANALYTICS -->
+    <section class="app-page" id="page-analytics">
+      <div class="section-header"><div><h2>Analytics</h2><p>Business-intelligence analysis generated from the selected school years and current saved records.</p></div></div>
+      <div class="tab-row" data-tab-group="analytics">
+        <button class="tab active" data-tab="enrollment">Enrollment</button>
+        <button class="tab" data-tab="retention">Dropouts &amp; Repeaters</button>
+        <button class="tab" data-tab="continuity">Cohort &amp; Transition</button>
+        <button class="tab" data-tab="teachers">Teachers</button>
+        <button class="tab" data-tab="resources">Resources</button>
+      </div>
+
+      <div class="tab-content active analytics-section" id="analytics-enrollment">
+        <div class="analysis-visuals two-up">
+          <article class="panel chart-panel"><h3>Enrollment Trend Analysis</h3><div class="canvas-wrap extra-tall"><canvas id="analyticsEnrollment"></canvas></div></article>
+          <article class="panel chart-panel"><h3>JHS vs SHS Enrollment</h3><div class="canvas-wrap extra-tall"><canvas id="analyticsLevels"></canvas></div></article>
+          <article class="panel chart-panel"><h3>Selected-Period Grade Distribution</h3><div class="canvas-wrap tall"><canvas id="analyticsGrade"></canvas></div></article>
+          <article class="panel comparison-panel"><h3>Period Comparison</h3><div id="comparisonCards" class="comparison-cards"></div></article>
+        </div>
+        <div class="bi-framework" id="bi-enrollment"></div>
+      </div>
+
+      <div class="tab-content analytics-section" id="analytics-retention">
+        <div class="analysis-visuals two-up">
+          <article class="panel chart-panel"><h3>Dropout Count by Year</h3><div class="canvas-wrap extra-tall"><canvas id="dropoutBarChart"></canvas></div></article>
+          <article class="panel chart-panel"><h3>Repeater Count by Year</h3><div class="canvas-wrap extra-tall"><canvas id="repeaterBarChart"></canvas></div></article>
+          <article class="panel chart-panel"><h3>Dropout Rate Movement</h3><div class="canvas-wrap tall"><canvas id="dropoutRateChart"></canvas></div></article>
+          <article class="panel chart-panel"><h3>Selected-Period Repeater Contribution</h3><div class="canvas-wrap tall"><canvas id="gradeRiskChart"></canvas></div></article>
+        </div>
+        <div class="bi-framework" id="bi-retention"></div>
+      </div>
+
+      <div class="tab-content analytics-section" id="analytics-continuity">
+        <div class="analysis-visuals two-up">
+          <article class="panel chart-panel"><h3>Cohort Survival Trend</h3><div class="canvas-wrap extra-tall"><canvas id="cohortChart"></canvas></div></article>
+          <article class="panel chart-panel"><h3>Grade 10 to Grade 11 Transition</h3><div class="canvas-wrap extra-tall"><canvas id="transitionChart"></canvas></div></article>
+          <article class="panel narrative-card"><h3>How to Read This Indicator</h3><p>Transition rate compares current Grade 11 enrollment with the previous school year's Grade 10 enrollment. It supports continuity planning and does not by itself prove a transfer, dropout, or reason for non-continuation.</p></article>
+          <article class="panel chart-panel"><h3>Transition Count Gap</h3><div class="canvas-wrap tall"><canvas id="transitionGapChart"></canvas></div></article>
+        </div>
+        <div class="bi-framework" id="bi-continuity"></div>
+      </div>
+
+      <div class="tab-content analytics-section" id="analytics-teachers">
+        <div class="analysis-visuals two-up">
+          <article class="panel chart-panel"><h3>Total Teachers by School Year</h3><div class="canvas-wrap extra-tall"><canvas id="teacherCountChart"></canvas></div></article>
+          <article class="panel chart-panel"><h3>Students per Teacher</h3><div class="canvas-wrap extra-tall"><canvas id="teacherRatioChart"></canvas></div></article>
+          <article class="panel scenario-mini"><h3>Teacher Ratio Planner</h3><p>Use What-If to explore a future enrollment level with an assumed teacher count.</p><button class="primary-action" data-page-link="insights" data-insight-tab="whatif">Open What-If</button></article>
+          <article class="panel narrative-card"><h3>Interpretation Note</h3><p>A lower ratio in the current records accompanies falling enrollment with relatively stable teacher totals. It should be reviewed together with teaching assignments and program needs.</p></article>
+        </div>
+        <div class="bi-framework" id="bi-teachers"></div>
+      </div>
+
+      <div class="tab-content analytics-section" id="analytics-resources">
+        <div class="analysis-visuals two-up">
+          <article class="panel chart-panel"><h3>Total Classrooms by Year</h3><div class="canvas-wrap extra-tall"><canvas id="classroomCountChart"></canvas></div></article>
+          <article class="panel chart-panel"><h3>Students per Classroom</h3><div class="canvas-wrap extra-tall"><canvas id="classroomRatioChart"></canvas></div></article>
+          <article class="panel chart-panel"><h3>JHS and SHS Rooms</h3><div class="canvas-wrap tall"><canvas id="roomLevelChart"></canvas></div></article>
+          <article class="panel narrative-card"><h3>Planning Note</h3><p>Classroom ratios can support space-planning discussions such as remedial or guidance rooms when actual schedules and room uses are reviewed.</p></article>
+        </div>
+        <div class="bi-framework" id="bi-resources"></div>
+      </div>
+    </section>
+
+    <!-- INSIGHTS & ACTIONS -->
+    <section class="app-page" id="page-insights">
+      <div class="section-header"><div><h2>Insights &amp; Actions</h2><p>Long-term findings, planning estimates, concerns, scenarios, and trackable actions.</p></div><button class="primary-action" id="addActionBtn">+ Add Action Plan</button></div>
+      <div class="tab-row" data-tab-group="insights">
+        <button class="tab active" data-tab="highlights">Highlights</button><button class="tab" data-tab="forecast">Forecast</button><button class="tab" data-tab="concerns">School Concerns</button><button class="tab" data-tab="whatif">What-If</button><button class="tab" data-tab="plans">Action Plans</button>
+      </div>
+      <div class="tab-content active" id="insights-highlights">
+        <div class="headline-banner"><h3>Data-Led School Progress Review</h3><p>Statements below update with selected years and saved records. Possible causes are shown as review points rather than confirmed conclusions.</p></div>
+        <div class="highlight-grid" id="fullHighlights"></div>
+      </div>
+      <div class="tab-content" id="insights-forecast">
+        <div class="forecast-layout">
+          <article class="panel chart-panel"><h3>Actual vs Projected Enrollment</h3><p class="chart-expand-hint">Click the <strong>Projected Enrollment</strong> legend to expand this chart.</p><div class="canvas-wrap extra-tall"><canvas id="forecastChart"></canvas></div></article>
+          <article class="panel forecast-summary"><h3>Planning Estimate</h3><div id="forecastValues"></div><p class="plain-note">Projected values are trend-based planning estimates and should be interpreted with newly added school records.</p></article>
+          <article class="panel" id="forecastAnalytics"></article>
+        </div>
+      </div>
+      <div class="tab-content" id="insights-concerns"><div id="concernCards" class="concern-cards"></div></div>
+      <div class="tab-content" id="insights-whatif">
+        <div class="whatif-layout">
+          <article class="scenario-card"><h3>Enrollment Scenario</h3><label>Base School Year<select id="scenarioYear"></select></label><label>Assumed Change <output id="changeValue">-5%</output><input type="range" id="enrollmentChange" min="-30" max="30" value="-5"></label><div class="scenario-result"><span>Estimated Enrollment</span><strong id="scenarioEnrollment"></strong><small id="scenarioDifference"></small></div><p class="scenario-note">Planning use: evaluate resource and continuity impacts under a selected change.</p></article>
+          <article class="scenario-card"><h3>Transition Improvement</h3><label>Target Transition Rate <output id="transitionTargetValue">70%</output><input type="range" id="transitionTarget" min="30" max="100" value="70"></label><div class="scenario-result"><span>Estimated Grade 11 Intake</span><strong id="scenarioG11"></strong><small id="scenarioG11Difference"></small></div><p class="scenario-note">Planning use: establish a measurable orientation or continuation target.</p></article>
+          <article class="scenario-card"><h3>Repeater Reduction</h3><label>Target Repeater Rate <output id="repeatTargetValue">1.50%</output><input type="range" id="repeatTarget" min="0" max="8" value="1.5" step="0.1"></label><div class="scenario-result"><span>Target Repeaters</span><strong id="scenarioRepeaters"></strong><small id="repeaterDifference"></small></div><p class="scenario-note">Planning use: define the reduction required after academic-support actions.</p></article>
+          <article class="scenario-card"><h3>Student-Teacher Ratio</h3><label>Assumed Teachers<input type="number" id="scenarioTeachers" value="50" min="1"></label><div class="scenario-result"><span>Estimated Ratio</span><strong id="scenarioSTRatio"></strong><small>Based on scenario enrollment</small></div><p class="scenario-note">Planning use: compare staffing assumptions with projected enrollment.</p></article>
+        </div>
+      </div>
+      <div class="tab-content" id="insights-plans"><div id="actionPlans" class="action-grid"></div></div>
+    </section>
+
+    <!-- SCHOOL RECORDS -->
+    <section class="app-page" id="page-records">
+      <div class="section-header"><div><h2>School Records</h2><p>Edit stored data, upload an updated Excel workbook, add a new school year, or safely undo your most recent data change.</p></div><button class="soft-action undo-action" id="undoDataBtn">↶ Undo Last Data Change</button></div>
+      <article class="panel upload-strip">
+        <div><h3>Upload Updated Excel Workbook</h3><p>Upload a workbook to add a new school year, update saved values, or perform a full sync when removed Excel records should also be removed from the dashboard. Saved dashboard edits appear in the downloadable updated Excel workbook under Reports.</p><p class="sync-note">Important: Add/Update keeps existing data not shown in the upload. Full Sync makes saved dashboard records match the workbook, including removals. Undo can restore the latest data change.</p></div>
+        <form id="excelUploadForm" class="upload-form">
+          <label class="upload-drop"><input type="file" id="excelFile" accept=".xlsx" required><span>Choose Excel File</span><small>.xlsx only</small></label>
+          <label class="sync-mode">Sync Option
+            <select id="excelSyncMode">
+              <option value="merge">Add new year / update matching values</option>
+              <option value="replace">Full sync: make dashboard match workbook</option>
+            </select>
+          </label>
+          <button class="primary-action" type="submit">Upload &amp; Refresh</button>
+        </form>
+      </article>
+      <div class="tab-row" data-tab-group="records"><button class="tab active" data-tab="enrollment">Enrollment</button><button class="tab" data-tab="dropouts">Dropouts</button><button class="tab" data-tab="repeaters">Repeaters</button><button class="tab" data-tab="teachers">Teachers</button><button class="tab" data-tab="resources">Resources</button><button class="tab" data-tab="cohort">Cohort</button><button class="tab" data-tab="addyear">Add School Year</button></div>
+      <div class="records-toolbar"><label class="table-search">⌕ <input id="recordSearch" placeholder="Search records..."></label><select id="recordYear"></select><button class="danger-action record-delete" id="deleteYearBtn" disabled>Delete Selected School Year</button></div>
+      <div class="tab-content active" id="records-enrollment"><article class="panel table-panel"><table id="enrollmentTable"></table></article></div>
+      <div class="tab-content" id="records-dropouts"><article class="panel table-panel"><table id="dropoutTable"></table></article></div>
+      <div class="tab-content" id="records-repeaters"><article class="panel table-panel"><table id="repeaterTable"></table></article></div>
+      <div class="tab-content" id="records-teachers"><article class="panel table-panel"><table id="teacherTable"></table></article></div>
+      <div class="tab-content" id="records-resources"><article class="panel table-panel"><table id="resourceTable"></table></article></div>
+      <div class="tab-content" id="records-cohort"><article class="panel table-panel"><table id="cohortTable"></table></article></div>
+      <div class="tab-content" id="records-addyear">
+        <article class="panel wizard-card">
+          <div class="wizard-head"><div><h3>Add New School Year</h3><p>Enter one grade per row. Totals and rates calculate after saving.</p></div><label class="year-input">School Year<input id="newYearName" value="2026-2027"></label></div>
+          <p class="entry-guide">Fill one clear card per grade level. No fields will extend beyond the tab panel.</p><div class="year-grid-table" id="newYearInputs"></div>
+          <div class="resource-entry compact-resource-entry"><label>JHS Classrooms<input type="number" id="newJhsRooms" value="24" min="0"></label><label>SHS Classrooms<input type="number" id="newShsRooms" value="10" min="0"></label></div>
+          <article class="auto-baseline-panel" id="autoBaselinePanel">
+            <div><span class="auto-tag">Automatic Cohort Baseline</span><h4 id="autoBaselineTitle">Enter a school year to locate the matching Grade 7 baseline.</h4><p id="autoBaselineNote">Grade 12 current enrollment will come automatically from the Grade 12 enrollment entered above.</p></div>
+            <div class="auto-baseline-values" id="autoBaselineValues"></div>
+          </article>
+          <div class="manual-baseline-panel hidden" id="manualBaselinePanel">
+            <p>No earlier Grade 7 record was found for this cohort. Enter the baseline only when an official value is available.</p>
+            <div class="resource-entry compact-resource-entry"><label>Baseline School Year<input id="newCohortYear" placeholder="e.g., 2021-2022"></label><label>Grade 7 Baseline Enrollment<input type="number" id="newCohortBase" min="0"></label></div>
+          </div>
+          <div id="newYearPreview" class="preview-summary"></div><button class="primary-action" id="saveYearBtn">Save New School Year</button>
+        </article>
+      </div>
+    </section>
+
+    <!-- REPORTS -->
+    <section class="app-page" id="page-reports">
+      <div class="section-header"><div><h2>Reports</h2><p>Download presentation-ready summaries, chart-supported papers, and updated Excel workbooks.</p></div></div>
+      <div class="report-grid" id="reportGrid"></div>
+    </section>
+
+    <!-- ACCOUNTS -->
+    <section class="app-page" id="page-accounts">
+      <div class="section-header"><div><h2>Accounts</h2><p>Manage dashboard login accounts and review recent activity.</p></div><button class="primary-action" id="addAccountBtn">+ Add Account</button></div>
+      <div class="tab-row" data-tab-group="accounts"><button class="tab active" data-tab="holders">Account Holders</button><button class="tab" data-tab="activity">Recent Activity</button></div>
+      <div class="tab-content active" id="accounts-holders"><div class="account-toolbar"><label class="table-search">⌕ <input id="accountSearch" placeholder="Search account holder..."></label></div><div id="accountList" class="account-list"></div></div>
+      <div class="tab-content" id="accounts-activity"><div class="activity-filters"><button class="selected" data-activity="All">All</button><button data-activity="Logins">Logins</button><button data-activity="Records">Records</button><button data-activity="Reports">Reports</button><button data-activity="Accounts">Accounts</button></div><div id="activityFull" class="timeline full"></div></div>
+    </section>
+  </main>
+</div>
+
+<!-- MODALS -->
+<div class="modal-backdrop" id="recordModal"><div class="modal-card"><button class="modal-close" data-close="recordModal">×</button><h2>Edit School Record</h2><form id="recordForm"><input type="hidden" id="editRecordId"><label>School Year<input id="editRecordYear" required readonly></label><label>Grade Level<input id="editRecordGrade" required readonly></label><label>Level<select id="editRecordLevel"><option>JHS</option><option>SHS</option></select></label><div class="form-grid"><label>Enrollment<input id="editEnrollment" type="number" min="0" required></label><label>Dropouts<input id="editDropouts" type="number" min="0" required></label><label>Repeaters<input id="editRepeaters" type="number" min="0" required></label><label>Teachers<input id="editTeachers" type="number" min="0" required></label></div><div class="modal-actions"><button type="button" class="ghost-action" data-close="recordModal">Cancel</button><button class="primary-action" type="submit">Save Changes</button></div></form></div></div>
+<div class="modal-backdrop" id="resourceModal"><div class="modal-card small"><button class="modal-close" data-close="resourceModal">×</button><h2>Edit Classroom Record</h2><form id="resourceForm"><label>School Year<input id="editResourceYear" readonly></label><label>JHS Classrooms<input id="editJhsRooms" type="number" min="0"></label><label>SHS Classrooms<input id="editShsRooms" type="number" min="0"></label><div class="modal-actions"><button type="button" class="ghost-action" data-close="resourceModal">Cancel</button><button class="primary-action" type="submit">Save Changes</button></div></form></div></div>
+<div class="modal-backdrop" id="cohortModal"><div class="modal-card small"><button class="modal-close" data-close="cohortModal">×</button><h2>Edit Cohort Record</h2><form id="cohortForm"><label>School Year<input id="editCohortYear" readonly></label><label>Baseline School Year<input id="editBaselineYear"></label><label>Grade 7 Baseline<input id="editBaselineCount" type="number" min="0"></label><label>Grade 12 Current Enrollment<input id="editCurrentG12" type="number" min="0"></label><div class="modal-actions"><button type="button" class="ghost-action" data-close="cohortModal">Cancel</button><button class="primary-action">Save Changes</button></div></form></div></div>
+<div class="modal-backdrop" id="accountModal"><div class="modal-card"><button class="modal-close" data-close="accountModal">×</button><h2 id="accountModalTitle">Add Account Holder</h2><p>Passwords remain hidden after setup. Add an optional profile photo for the account card.</p><form id="accountForm"><input type="hidden" id="editAccountId"><input type="hidden" id="newAccountAvatarData"><label>Profile Photo<input id="newAccountAvatar" type="file" accept="image/png,image/jpeg,image/webp"></label><div class="avatar-preview-row"><span class="avatar large" id="accountAvatarPreview">+</span><small>PNG, JPG or WEBP. Image is resized for the dashboard.</small></div><label>Full Name<input id="newAccountName" required></label><label>Username<input id="newAccountUsername" required></label><label>Password<input id="newAccountPassword" type="password"></label><label>Confirm Password<input id="newAccountConfirm" type="password"></label><div class="modal-actions"><button type="button" class="danger-action hidden" id="deleteAccountBtn">Delete Account</button><button type="button" class="ghost-action" data-close="accountModal">Cancel</button><button class="primary-action" type="submit">Save Account</button></div></form></div></div>
+<div class="modal-backdrop" id="actionModal"><div class="modal-card wide"><button class="modal-close" data-close="actionModal">×</button><h2 id="actionModalTitle">Add Action Plan</h2><form id="actionForm"><input type="hidden" id="editActionId"><div class="form-grid"><label>School Year<input id="actionYear" required></label><label>Analysis Type<select id="actionType"><option>Descriptive</option><option>Diagnostic</option><option>Predictive</option><option selected>Prescriptive</option></select></label></div><label>Focus Area<input id="actionArea" required></label><label>Observed Pattern<textarea id="actionPattern" required></textarea></label><label>Data Basis<textarea id="actionBasis"></textarea></label><label>Suggested Action<textarea id="actionText" required></textarea></label><div class="form-grid"><label>Responsible Group<input id="actionGroup" required></label><label>Target Indicator<input id="actionIndicator"></label><label>Baseline Value<input id="actionBaseline"></label><label>Target Value<input id="actionTarget"></label><label>Monitoring Period<input id="actionPeriod"></label><label>Current Result<input id="actionResult"></label><label>Status<select id="actionStatus"><option>Suggested</option><option>Ongoing</option><option>Completed</option><option>Archived</option></select></label></div><label>Progress Notes<textarea id="actionProgress"></textarea></label><label>Additional Notes<textarea id="actionNotes"></textarea></label><div class="modal-actions"><button type="button" class="ghost-action" data-close="actionModal">Cancel</button><button class="primary-action">Save Action Plan</button></div></form></div></div>
+<div class="modal-backdrop" id="profileModal"><div class="modal-card small"><button class="modal-close" data-close="profileModal">×</button><h2>Edit Account</h2><form id="profileForm"><label>Profile Photo<input id="profileAvatar" type="file" accept="image/png,image/jpeg,image/webp"></label><input type="hidden" id="profileAvatarData"><label>Full Name<input id="profileName" value="{{ account.full_name }}"></label><label>Username<input id="profileUsername" value="{{ account.username }}"></label><label>New Password<input id="profilePassword" type="password" placeholder="Leave blank to keep current password"></label><label>Confirm New Password<input id="profileConfirm" type="password"></label><div class="modal-actions"><button type="button" class="ghost-action" data-close="profileModal">Cancel</button><button class="primary-action">Save Changes</button></div></form></div></div>
+<div class="modal-backdrop" id="displayModal"><div class="modal-card wide"><button class="modal-close" data-close="displayModal">×</button><h2>Dashboard Display Settings</h2><form id="displayForm"><label>Dashboard Title<input id="settingTitle" value="{{ settings.dashboard_title }}"></label><label>School Name<input id="settingSchool" value="{{ settings.school_name }}"></label><label>Location<input id="settingLocation" value="{{ settings.location }}"></label><label>Subtitle<input id="settingSubtitle" value="{{ settings.subtitle }}"></label><div class="form-grid"><label>Main Green<input id="settingGreen" value="{{ settings.main_green }}"></label><label>Sidebar Color<input id="settingSidebar" value="{{ settings.sidebar_color }}"></label></div><div class="modal-actions"><button type="button" class="ghost-action" data-close="displayModal">Cancel</button><button class="primary-action">Save Display</button></div></form></div></div>
+<div class="toast" id="toast"></div>
+<script>window.SRNHS = {csrf: {{ csrf_token|tojson }}, account: {{ account|tojson }}, backend: {{ backend|tojson }}};</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
