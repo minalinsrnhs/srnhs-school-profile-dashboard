@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ settings.dashboard_title }} | Log In</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>:root{--brand-main:{{ settings.main_green }};--brand-side:{{ settings.sidebar_color }};--page-bg:{{ settings.page_background }};}</style>
+</head>
+<body class="login-page">
+  <main class="login-hero" style="background-image:linear-gradient(90deg,rgba(8,31,20,.34),rgba(8,31,20,.28)),url('{{ settings.login_background_url }}');">
+    <div class="login-overlay"></div>
+    <section class="logo-stage" aria-label="School Logo">
+      <img src="{{ settings.logo_url }}" alt="Sto. Rosario National High School logo" class="hero-logo">
+    </section>
+    <section class="login-card" aria-label="Login panel">
+      <p class="login-school">STO. ROSARIO<br>NATIONAL HIGH SCHOOL<br>MINALIN, PAMPANGA</p>
+      <h1>Log In</h1>
+      <form action="{{ url_for('login') }}" method="post" class="login-form">
+        {% if error %}<p class="login-error">{{ error }}</p>{% endif %}
+        <label class="pill-input"><span class="input-symbol">●</span><input name="username" placeholder="USERNAME" autocomplete="username" required></label>
+        <label class="pill-input"><span class="input-lock">▣</span><input id="password" name="password" type="password" placeholder="PASSWORD" autocomplete="current-password" required><button class="eye-button" type="button" id="togglePassword" aria-label="Show password">◉</button></label>
+        <button type="submit" class="login-button">LOG IN</button>
+      </form>
+    </section>
+  </main>
+  <script>
+    const toggle = document.getElementById('togglePassword');
+    const password = document.getElementById('password');
+    toggle.addEventListener('click', () => {
+      const reveal = password.type === 'password';
+      password.type = reveal ? 'text' : 'password';
+      toggle.textContent = reveal ? '◎' : '◉';
+    });
+  </script>
+</body>
+</html>
